@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/gltf_validator.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var createScene = function () {
+        
+             var scene = new BABYLON.Scene(engine);
+            var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+        	scene.activeCameras.push(camera);	
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;	
+            var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
+            sphere.position.y = 1;	
+            var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+        	
+        	//---------------------------------	
+        	// Texture Dynamic
+        	var makeTextView = function(text, ang) {
+        		var dynamicTexture = new BABYLON.DynamicTexture("DynamicTextureForChar", 64, scene, true);
+        		dynamicTexture.drawText(text, null, 36, "bold 15px Arial", "white", "grey", true);
+        		dynamicTexture.wAng = ang;			
+        		return dynamicTexture;
+        	};
+        	// Camera orthographic
+        	this.CameraViewcube = new BABYLON.FreeCamera("CameraViewcube", BABYLON.Vector3.Zero(), scene);
+        	this.CameraViewcube.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+        	this.CameraViewcube.setTarget(BABYLON.Vector3.Zero());
+        	this.CameraViewcube.layerMask = 0x20000000;
+        	this.CameraViewcube.orthoTop = 10;
+        	this.CameraViewcube.orthoBottom = -10;
+        	this.CameraViewcube.orthoLeft = -10;
+        	this.CameraViewcube.orthoRight = 10;
+        	scene.activeCameras.push(this.CameraViewcube);
+        	
+        	// Cube
+        	var viewcube = BABYLON.Mesh.CreateBox("Viewcube", 1, scene);
+        	viewcube.position = new BABYLON.Vector3(8.2, 8.2, 0);
+        	viewcube.layerMask = 0x20000000;
+        
+        	// Material
+        	var materialFront = new BABYLON.StandardMaterial("materialFront", scene);
+        	materialFront.specularColor = BABYLON.Color3.Black();
+        	materialFront.diffuseTexture = makeTextView("Front", 0);
+        
+        	var materialBack = new BABYLON.StandardMaterial("materialBack", scene);
+        	materialBack.specularColor = BABYLON.Color3.Black();
+        	materialBack.diffuseTexture = makeTextView("Back", -3.14);
+        	
+        	var materialLeft = new BABYLON.StandardMaterial("materialLeft", scene);
+        	materialLeft.specularColor = BABYLON.Color3.Black();
+        	materialLeft.diffuseTexture = makeTextView("Left", 1.57);
+        
+        	var materialRight = new BABYLON.StandardMaterial("materialRight", scene);
+        	materialRight.specularColor = BABYLON.Color3.Black();
+        	materialRight.diffuseTexture = makeTextView("Right", 1.57);
+        	
+        	var materialTop = new BABYLON.StandardMaterial("materialTop", scene);
+        	materialTop.specularColor = BABYLON.Color3.Black();
+        	materialTop.diffuseTexture = makeTextView("Top", 1.57);
+        	
+        	var materialBottom = new BABYLON.StandardMaterial("materialBottom", scene);
+        	materialBottom.specularColor = BABYLON.Color3.Black();
+        	materialBottom.diffuseTexture = makeTextView("Bottom", -1.57);
+        	
+        	// Multi material (6 textures dynamic)
+        	var multimatViewcube = new BABYLON.MultiMaterial("multiMatViewcube", scene);
+        	multimatViewcube.subMaterials.push(materialBack);
+        	multimatViewcube.subMaterials.push(materialFront);	
+        	multimatViewcube.subMaterials.push(materialRight);
+        	multimatViewcube.subMaterials.push(materialLeft);
+        	multimatViewcube.subMaterials.push(materialTop);
+        	multimatViewcube.subMaterials.push(materialBottom);		
+        	
+        	viewcube.material = multimatViewcube;
+        	
+        	// SubMeshes for multiMaterial
+        	viewcube.subMeshes = [];
+        	var verticesCount = viewcube.getTotalVertices();
+        	
+        	new BABYLON.SubMesh(0, 0, verticesCount, 0, 6, viewcube);
+        	new BABYLON.SubMesh(1, 0, verticesCount, 6, 6, viewcube);
+        	new BABYLON.SubMesh(2, 0, verticesCount, 12, 6, viewcube);
+        	new BABYLON.SubMesh(3, 0, verticesCount, 18, 6, viewcube);
+        	new BABYLON.SubMesh(4, 0, verticesCount, 24, 6, viewcube);
+        	new BABYLON.SubMesh(5, 0, verticesCount, 30, 6, viewcube);	
+        	
+        	// Update rotation viewcube
+        	scene.registerBeforeRender(function () {
+        		if (scene.isReady()) {
+        			viewcube.rotation = new BABYLON.Vector3(-camera.rotation.x, -camera.rotation.y, -camera.rotation.z);
+        		}
+        	});
+        
+            return scene;
+        
+        };
+        
+        var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        var scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>

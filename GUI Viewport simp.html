@@ -1,0 +1,335 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/gltf_validator.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        // https://playground.babylonjs.com/#X5DRLN
+        var canvas = document.getElementById("renderCanvas");
+
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+        
+            //Camera
+            camera=new BABYLON.ArcRotateCamera("Camera", -Math.PI/2 ,Math.PI/2, 10, BABYLON.Vector3.Zero(), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            // camera.setPosition(new BABYLON.Vector3(0,.5,-10));
+            camera.attachControl(canvas, true);
+            scene.activeCameras.push(camera);
+
+            //light
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+            for(var i = scene.lights.length - 1; i >= 0; i--){//关闭第二相机中的灯光
+                scene.lights[i].excludeWithLayerMask = 0x10000000;
+            }
+
+            // //sphere
+            // var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
+            // sphere.position.y = 1;
+            //
+            //ground
+            var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+            /************Start Pilot*********************************/
+            var body = BABYLON.MeshBuilder.CreateCylinder("body", { height: 0.75, diameterTop: 0.2, diameterBottom: 0.5, tessellation: 6, subdivisions: 1 }, scene);
+            var arm = BABYLON.MeshBuilder.CreateBox("arm", { height: 0.75, width: 0.3, depth: 0.1875 }, scene);
+            arm.position.x = 0.125;
+            var pilot = BABYLON.Mesh.MergeMeshes([body, arm], true);
+
+            // var localOrigin = localAxes(2);
+            // localOrigin.parent = pilot;
+            /*************End Pilot****************************************/
+
+            /*******************************Local Axes****************************/
+            function localAxes(size) {
+                var pilot_local_axisX = BABYLON.Mesh.CreateLines("pilot_local_axisX", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, 0.05 * size, 0),
+                    new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, -0.05 * size, 0)
+                ], scene);
+                pilot_local_axisX.color = new BABYLON.Color3(1, 0, 0);
+
+                var pilot_local_axisY = BABYLON.Mesh.CreateLines("pilot_local_axisY", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(-0.05 * size, size * 0.95, 0),
+                    new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(0.05 * size, size * 0.95, 0)
+                ], scene);
+                pilot_local_axisY.color = new BABYLON.Color3(0, 1, 0);
+
+                var pilot_local_axisZ = BABYLON.Mesh.CreateLines("pilot_local_axisZ", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, -0.05 * size, size * 0.95),
+                    new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, 0.05 * size, size * 0.95)
+                ], scene);
+                pilot_local_axisZ.color = new BABYLON.Color3(0, 0, 1);
+
+                var local_origin = BABYLON.MeshBuilder.CreateBox("local_origin", { size: 1 }, scene);
+                local_origin.isVisible = false;
+
+                pilot_local_axisX.parent = local_origin;
+                pilot_local_axisY.parent = local_origin;
+                pilot_local_axisZ.parent = local_origin;
+
+                return local_origin;
+
+            }
+            /*******************************End Local Axes****************************/
+
+            /*******************************Add ViewBox*******************************/
+            function addViewBox(scene) {
+                // https://www.babylonjs-playground.com/#E9IRIF two view
+                if (scene.activeCameras.length === 0){
+                    scene.activeCameras.push(scene.activeCamera);
+                }
+                //ViewBox
+                var viewBox=BABYLON.MeshBuilder.CreateBox("viewBox",{width:1.3,height:1.3,depth:1.3},scene);
+                // viewBox.position.y=-1000;
+                viewBox.layerMask = 0x10000000;
+
+                // ViewBox light
+                // var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 0, 1), scene);
+                // light.includeOnlyWithLayerMask = 0x10000000;
+
+                //CameraView
+                // var cameraView = new BABYLON.ArcRotateCamera("cameraView", 0,0, 1000, BABYLON.Vector3.Zero(), scene);
+                var cameraView = new BABYLON.ArcRotateCamera("cameraView", -Math.PI/2, Math.PI/2, 1000, viewBox.position, scene);
+                // cameraView.setPosition(new BABYLON.Vector3(0, -1000, 3));
+                cameraView.layerMask = 0x10000000;//均匀光照 各面一致
+                // cameraView.orthoTop = 10;
+                // cameraView.orthoBottom = -10;
+                // cameraView.orthoLeft = -10;
+                // cameraView.orthoRight = 10;
+                cameraView.target = viewBox;
+                cameraView.attachControl(canvas, true);
+                cameraView.viewport = new BABYLON.Viewport(.87, .85, .15, .15);
+                cameraView.lowerRadiusLimit = 3;
+                cameraView.upperRadiusLimit = 3;
+
+                // Texture Dynamic Viewcube各面贴图
+                var makeTextView = function (text, ang) {
+                    var dynamicTexture = new BABYLON.DynamicTexture("DynamicTextureForChar", 64, scene, true);
+                    dynamicTexture.drawText(text, null, 36, "bold 15px Arial", "white", "grey", true);
+                    dynamicTexture.wAng = ang;
+                    return dynamicTexture;
+                };
+
+                // Material
+                var materialFront = new BABYLON.StandardMaterial("materialFront", scene);
+                materialFront.specularColor = BABYLON.Color3.Black();
+                materialFront.diffuseTexture = makeTextView("Front", 3.14);
+                materialFront.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                var materialBack = new BABYLON.StandardMaterial("materialBack", scene);
+                materialBack.specularColor = BABYLON.Color3.Black();
+                materialBack.diffuseTexture = makeTextView("Back", 0);
+                materialBack.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                var materialLeft = new BABYLON.StandardMaterial("materialLeft", scene);
+                materialLeft.specularColor = BABYLON.Color3.Black();
+                materialLeft.diffuseTexture = makeTextView("Left", 1.57);
+                materialLeft.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                var materialRight = new BABYLON.StandardMaterial("materialRight", scene);
+                materialRight.specularColor = BABYLON.Color3.Black();
+                materialRight.diffuseTexture = makeTextView("Right", 1.57);
+                materialRight.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                var materialTop = new BABYLON.StandardMaterial("materialTop", scene);
+                materialTop.specularColor = BABYLON.Color3.Black();
+                materialTop.diffuseTexture = makeTextView("Top", 1.57);
+                materialTop.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                var materialBottom = new BABYLON.StandardMaterial("materialBottom", scene);
+                materialBottom.specularColor = BABYLON.Color3.Black();
+                materialBottom.diffuseTexture = makeTextView("Bottom", -1.57);
+                materialBottom.emissiveColor = new BABYLON.Color3(1,1,1);
+
+                // Multi material (6 textures dynamic)
+                var multimatViewcube = new BABYLON.MultiMaterial("multiMatViewcube", scene);
+                multimatViewcube.subMaterials.push(materialFront);
+                multimatViewcube.subMaterials.push(materialBack);
+
+                multimatViewcube.subMaterials.push(materialRight);
+                multimatViewcube.subMaterials.push(materialLeft);
+
+                multimatViewcube.subMaterials.push(materialTop);
+                multimatViewcube.subMaterials.push(materialBottom);
+
+
+
+                viewBox.material = multimatViewcube;
+
+                // SubMeshes for multiMaterial
+                viewBox.subMeshes = [];
+                var verticesCount = viewBox.getTotalVertices();
+
+                viewBox.subMeshes.push(new BABYLON.SubMesh(0, 0, verticesCount, 0, 6, viewBox));
+                viewBox.subMeshes.push(new BABYLON.SubMesh(1, 0, verticesCount, 6, 6, viewBox));
+                viewBox.subMeshes.push(new BABYLON.SubMesh(2, 0, verticesCount, 12, 6, viewBox));
+                viewBox.subMeshes.push(new BABYLON.SubMesh(3, 0, verticesCount, 18, 6, viewBox));
+                viewBox.subMeshes.push(new BABYLON.SubMesh(4, 0, verticesCount, 24, 6, viewBox));
+                viewBox.subMeshes.push(new BABYLON.SubMesh(5, 0, verticesCount, 30, 6, viewBox));
+
+                scene.activeCameras.push(cameraView);
+
+                // var pickInfo;
+                var onPointerDown = function (evt) {
+                    // pickInfo = scene.pick(scene.pointerX,scene.pointerY,null,null,camera);
+                    // if (pickInfo.hit) {
+                    //     console.log(pickInfo.pickedMesh.name+' faceId: '+pickInfo.faceId);
+                    //     return;
+                    // }
+                    var pickInfo = scene.pick(scene.pointerX,scene.pointerY,null,null,cameraView);
+                    console.log(pickInfo.pickedMesh.name);
+                    if (pickInfo.hit&&pickInfo.pickedMesh.name==="viewBox") {
+                        console.log(pickInfo.pickedMesh.name+' faceId: '+parseInt(pickInfo.faceId/2));
+                        switch (parseInt(pickInfo.faceId/2)) {
+                            case 1://back
+                                console.log("Click BACK!");
+                                // camera.setPosition(new BABYLON.Vector3(-Math.PI/2,Math.PI/2,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(-Math.PI/2,Math.PI/2, 1000));
+                                camera.alpha=-Math.PI/2;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=-Math.PI/2;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 0://front
+                                console.log("Click FRONT!");
+                                // camera.setPosition(new BABYLON.Vector3(Math.PI/2,Math.PI/2,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(Math.PI/2,Math.PI/2, 1000));
+                                camera.alpha=Math.PI/2;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=Math.PI/2;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 2://right
+                                console.log("Click RIGHT!");
+                                // camera.setPosition(new BABYLON.Vector3(0,Math.PI/2,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(0,Math.PI/2,1000));
+                                camera.alpha=0;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=0;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 3://left
+                                console.log("Click LEFT!");
+                                // camera.setPosition(new BABYLON.Vector3(Math.PI,Math.PI/2,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(Math.PI,Math.PI/2,1000));
+                                camera.alpha=Math.PI;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=Math.PI;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 4://top
+                                console.log("Click TOP!");
+                                // camera.setPosition(new BABYLON.Vector3(0,0,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(0,0,1000));
+                                camera.alpha=0;
+                                camera.beta=0;
+                                cameraView.alpha=0;
+                                cameraView.beta=0;
+                                break;
+                            case 5://bottom
+                                console.log("Click BOTTOM!");
+                                // camera.setPosition(new BABYLON.Vector3(0,Math.PI,10));
+                                // cameraView.setPosition(new BABYLON.Vector3(0,Math.PI,1000));
+                                camera.alpha=0;
+                                camera.beta=Math.PI;
+                                cameraView.alpha=0;
+                                cameraView.beta=Math.PI;
+                                break;
+                            default:
+                                console.log("error!");
+                        }
+                        scene.activeCameras.push(cameraView);
+                    }
+                };
+                canvas.addEventListener("pointerdown", onPointerDown, false);
+
+                //https://playground.babylonjs.com/#J6AF0X  action change color
+                var hoverMaterial=new BABYLON.StandardMaterial("hoverMaterial", scene);
+                hoverMaterial.emissiveColor=new BABYLON.Color3(0.537,0.678,0.875);
+                hoverMaterial.alpha=0.2;
+
+
+                var mouseHover=function(mesh) {
+                    mesh.actionManager = new BABYLON.ActionManager(scene);
+                    mesh.actionManager.registerAction(
+                        new BABYLON.SetValueAction(
+                            BABYLON.ActionManager.OnPointerOverTrigger,
+                            mesh,
+                            "material",
+                            hoverMaterial
+                        )
+                    );
+                    mesh.actionManager.registerAction(
+                        new BABYLON.SetValueAction(
+                            BABYLON.ActionManager.OnPointerOutTrigger,
+                            mesh,
+                            "material",
+                            multimatViewcube
+                        )
+                    );
+                };
+
+                mouseHover(viewBox);//...hover时，使其他mesh不可选
+            }
+            /*******************************End Add ViewBox*******************************/
+
+            addViewBox(scene);
+
+
+            return scene;
+        };
+        
+        var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        var scene = createScene();
+        scene.debugLayer.show();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>

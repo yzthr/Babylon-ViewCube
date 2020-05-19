@@ -1,0 +1,1996 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        // https://playground.babylonjs.com/#X5DRLN
+        var canvas = document.getElementById("renderCanvas");
+
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+        
+            //Camera
+            var camera=new BABYLON.ArcRotateCamera("Camera", 3*Math.PI/2 ,Math.PI/2, 10, BABYLON.Vector3.Zero(), scene);
+            camera.lowerAlphaLimit=null;
+            camera.upperAlphaLimit=null;
+            camera.lowerBetaLimit=null;
+            camera.upperBetaLimit=null;
+            // camera.setTarget(BABYLON.Vector3.Zero());
+            // camera.setPosition(new BABYLON.Vector3(0,.5,-10));
+            camera.attachControl(canvas, true);
+            scene.activeCameras.push(camera);
+
+            //light
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+            for(var i = scene.lights.length - 1; i >= 0; i--){//关闭第二相机中的灯光
+                scene.lights[i].excludeWithLayerMask = 0x10000000;
+            }
+
+            var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+            /************Start Pilot*********************************/
+            var body = BABYLON.MeshBuilder.CreateCylinder("body", { height: 0.75, diameterTop: 0.2, diameterBottom: 0.5, tessellation: 6, subdivisions: 1 }, scene);
+            var arm = BABYLON.MeshBuilder.CreateBox("arm", { height: 0.75, width: 0.3, depth: 0.1875 }, scene);
+            arm.position.x = 0.125;
+            var pilot = BABYLON.Mesh.MergeMeshes([body, arm], true);
+
+            var localOrigin = localAxes(100);
+            localOrigin.parent = pilot;
+            /*************End Pilot****************************************/
+
+            /*******************************Local Axes****************************/
+            function localAxes(size) {
+                var pilot_local_axisX = BABYLON.Mesh.CreateLines("pilot_local_axisX", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, 0.05 * size, 0),
+                    new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, -0.05 * size, 0)
+                ], scene);
+                pilot_local_axisX.color = new BABYLON.Color3(1, 0, 0);
+
+                var pilot_local_axisY = BABYLON.Mesh.CreateLines("pilot_local_axisY", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(-0.05 * size, size * 0.95, 0),
+                    new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(0.05 * size, size * 0.95, 0)
+                ], scene);
+                pilot_local_axisY.color = new BABYLON.Color3(0, 1, 0);
+
+                var pilot_local_axisZ = BABYLON.Mesh.CreateLines("pilot_local_axisZ", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, -0.05 * size, size * 0.95),
+                    new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, 0.05 * size, size * 0.95)
+                ], scene);
+                pilot_local_axisZ.color = new BABYLON.Color3(0, 0, 1);
+
+                var local_origin = BABYLON.MeshBuilder.CreateBox("local_origin", { size: 1 }, scene);
+                local_origin.isVisible = false;
+
+                pilot_local_axisX.parent = local_origin;
+                pilot_local_axisY.parent = local_origin;
+                pilot_local_axisZ.parent = local_origin;
+
+                return local_origin;
+
+            }
+            /*******************************End Local Axes****************************/
+
+
+
+
+            /**************************************Create Box*******************************/
+                //Add Parameters
+            var FACES = {
+                    FRONT: 0,
+                    RIGHT: 1,
+                    TOP: 2,
+                    BOTTOM: 3,
+                    LEFT: 4,
+                    BACK: 5,
+
+
+                    FRONT_RIGHT_EDGE: 6,
+                    TOP_FRONT_EDGE: 7,
+                    FRONT_LEFT_EDGE: 8,
+                    BOTTOM_FRONT_EDGE: 9,
+                    TOP_RIGHT_EDGE: 10,
+                    TOP_LEFT_EDGE: 11,
+                    BOTTOM_LEFT_EDGE: 12,
+                    BOTTOM_RIGHT_EDGE: 13,
+                    BACK_RIGHT_EDGE: 14,
+                    TOP_BACK_EDGE: 15,
+                    BACK_LEFT_EDGE: 16,
+                    BOTTOM_BACK_EDGE: 17,
+
+
+                    TOP_FRONT_RIGHT_CORNER: 18,
+                    TOP_FRONT_LEFT_CORNER: 19,
+                    BOTTOM_FRONT_LEFT_CORNER: 20,
+                    BOTTOM_FRONT_RIGHT_CORNER: 21,
+                    TOP_BACK_RIGHT_CORNER: 22,
+                    TOP_BACK_LEFT_CORNER: 23,
+                    BOTTOM_BACK_LEFT_CORNER: 24,
+                    BOTTOM_BACK_RIGHT_CORNER: 25
+
+                };
+            var FACE_COLOUR = new BABYLON.Color3.FromHexString("#608db1");
+            var FACE_OPACITY_MOUSE_OFF = 1.0;
+            var FACE_OPACITY_MOUSE_OVER = 0.8;
+            var backgroundColor="#8d8d8d";//string
+
+            rotateAngle=Math.PI;//全局变量
+
+
+
+            function makeFace(name, w, x, y, z, rotations, color)
+            // var rightFace  = self.makeFace(self.FACES.RIGHT,  70,   0,  50,   0, [{axis:X_AXIS, rad:ROTATE_270},{axis:Z_AXIS, rad:ROTATE_180}], self.FACE_COLOUR);
+            {
+                var myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                var face=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face.material=myMaterial;
+                // myMaterial.backFaceCulling=false;//试验添加
+
+                face.name = name;//string
+                face.position.x=x;
+                face.position.y=y;
+                face.position.z=z;
+                rotations.forEach(function (rotation) {
+                    face.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);//https://www.babylonjs-playground.com/#C12LH3#7
+                });
+                return face;
+            }
+
+            function makeEdge(name, w, h, x, y, z, rotations, color) //var topFrontEdge    = self.makeEdge(self.FACES.TOP_FRONT_EDGE, 70, 15,  50,   0, 50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+            {
+                var face1, face2, myMaterial, obj;
+
+                myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                face1=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: h}, scene);
+                face1.material=myMaterial;
+                face1.name = name;
+                face1.position.y=h / 2;
+                face1.rotate(new BABYLON.Vector3(0,1,0), Math.PI, BABYLON.Space.LOCAL);
+
+                face2=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: h}, scene);
+                face2.material=myMaterial;
+                face2.name = name;
+                face2.position.z=-h / 2;
+                face2.rotate(new BABYLON.Vector3(1,0,0), 3*Math.PI/2, BABYLON.Space.LOCAL);
+
+                obj=BABYLON.Mesh.MergeMeshes([face1,face2],true,true,null,false);
+                obj.name=name;
+                obj.position.x=x;
+                obj.position.y=y;
+                obj.position.z=z;
+
+                rotations.forEach(function (rotation) {
+                    obj.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);
+                });
+                return obj;
+            }
+
+            function makeCorner(name, w, x, y, z, rotations, color)
+            // var topFrontLeftCorner  = self.makeCorner(self.FACES.TOP_FRONT_LEFT_CORNER, 15,  50, -50, 50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+            {
+                var face1, face2, face3, myMaterial, obj;
+
+                myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                face1=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face1.material=myMaterial;
+                face1.name = name;
+                face1.position.x=w/2;
+                face1.position.y=w/2;
+                face1.rotate(new BABYLON.Vector3(1,0,0), Math.PI, BABYLON.Space.LOCAL);
+
+                face2=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face2.material=myMaterial;
+                face2.name = name;
+                face2.position.x=w / 2;
+                face2.position.z=-w / 2;
+                face2.rotate(new BABYLON.Vector3(1,0,0), 3*Math.PI / 2,BABYLON.Space.LOCAL);
+
+                face3=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face3.material=myMaterial;
+                face3.name = name;
+                face3.position.y=w / 2;
+                face3.position.z=-w / 2;
+                face3.rotate(new BABYLON.Vector3(0,1,0), Math.PI / 2,BABYLON.Space.LOCAL);
+
+                obj=BABYLON.Mesh.MergeMeshes([face1,face2,face3],true,true,null,false);
+                obj.name = name;
+                obj.position.x = x;
+                obj.position.y = y;
+                obj.position.z = z;
+
+                rotations.forEach(function (rotation) {
+                    obj.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);
+                });
+                return obj;
+            }
+
+            function setupGeometry(scale) //初始化几何部件
+            {
+                var ROTATE_0 = 0;
+                var ROTATE_90 = Math.PI / 2;
+                var ROTATE_180 = Math.PI;
+                var ROTATE_270 = Math.PI * 1.5;
+                var ROTATE_360 = Math.PI * 2;
+
+                var X_AXIS = new BABYLON.Vector3(1, 0, 0);
+                var Y_AXIS = new BABYLON.Vector3(0, 1, 0);
+                var Z_AXIS = new BABYLON.Vector3(0, 0, 1);
+
+                // var cube = new BABYLON.TransformNode("cube");
+
+                // faces
+                var frontFace = makeFace(FACES.FRONT, 7*scale, 0*scale, 0*scale, 5*scale, [{axis: X_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var rightFace = makeFace(FACES.RIGHT, 7*scale, 5*scale, 0*scale, 0*scale, [{axis: Y_AXIS, rad: ROTATE_270}], FACE_COLOUR);
+                var topFace = makeFace(FACES.TOP, 7*scale, 0*scale, 5*scale, 0*scale, [{axis: X_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomFace = makeFace(FACES.BOTTOM, 7*scale, 0*scale, -5*scale, 0*scale, [{axis: X_AXIS, rad: ROTATE_270}], FACE_COLOUR);
+                var leftFace = makeFace(FACES.LEFT, 7*scale, -5*scale, 0*scale, 0*scale, [{axis: Y_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var backFace = makeFace(FACES.BACK, 7*scale, 0*scale, 0*scale, -5*scale, [], FACE_COLOUR);
+
+                // edges
+                var frontRightEdge = makeEdge(FACES.FRONT_RIGHT_EDGE, 7*scale, 1.5*scale, 5*scale, 0*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }], FACE_COLOUR);
+                var topFrontEdge = makeEdge(FACES.TOP_FRONT_EDGE, 7*scale, 1.5*scale, 0*scale, 5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }], FACE_COLOUR);
+                var frontLeftEdge = makeEdge(FACES.FRONT_LEFT_EDGE, 7*scale, 1.5*scale, -5*scale, 0*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }], FACE_COLOUR);
+                var bottomFrontEdge = makeEdge(FACES.BOTTOM_FRONT_EDGE, 7*scale, 1.5*scale, 0*scale, -5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }], FACE_COLOUR);
+
+                var backRightEdge = makeEdge(FACES.BACK_RIGHT_EDGE, 7*scale, 1.5*scale, 5*scale, 0*scale, -5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var topBackEdge = makeEdge(FACES.TOP_BACK_EDGE, 7*scale, 1.5*scale, 0*scale, 5*scale, -5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var backLeftEdge = makeEdge(FACES.BACK_LEFT_EDGE, 7*scale, 1.5*scale, -5*scale, 0*scale, -5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var bottomBackEdge = makeEdge(FACES.BOTTOM_BACK_EDGE, 7*scale, 1.5*scale, 0*scale, -5*scale, -5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+
+                var topRightEdge = makeEdge(FACES.TOP_RIGHT_EDGE, 7*scale, 1.5*scale, 5*scale, 5*scale, 0*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_180
+                }, {axis: Y_AXIS, rad: ROTATE_90}, {axis: Z_AXIS, rad: 0}], FACE_COLOUR);
+                var topLeftEdge = makeEdge(FACES.TOP_LEFT_EDGE, 7*scale, 1.5*scale, -5*scale, 5*scale, 0*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomLeftEdge = makeEdge(FACES.BOTTOM_LEFT_EDGE, 7*scale, 1.5*scale, -5*scale, -5*scale, 0*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_270}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomRightEdge = makeEdge(FACES.BOTTOM_RIGHT_EDGE, 7*scale, 1.5*scale, 5*scale, -5*scale, 0*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_360}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+
+
+                // corners
+                var bottomFrontRightCorner = makeCorner(FACES.BOTTOM_FRONT_RIGHT_CORNER, 1.5*scale, 5*scale, -5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }], FACE_COLOUR);
+                var topFrontRightCorner = makeCorner(FACES.TOP_FRONT_RIGHT_CORNER, 1.5*scale, 5*scale, 5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }], FACE_COLOUR);
+                var topFrontLeftCorner = makeCorner(FACES.TOP_FRONT_LEFT_CORNER, 1.5*scale, -5*scale, 5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }], FACE_COLOUR);
+                var bottomFrontLeftCorner = makeCorner(FACES.BOTTOM_FRONT_LEFT_CORNER, 1.5*scale, -5*scale, -5*scale, 5*scale, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }], FACE_COLOUR);
+
+                var bottomBackRightCorner = makeCorner(FACES.BOTTOM_BACK_RIGHT_CORNER, 1.5*scale, 5*scale, -5*scale, -5*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_0
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_0}], FACE_COLOUR);
+                var topBackRightCorner = makeCorner(FACES.TOP_BACK_RIGHT_CORNER, 1.5*scale, 5*scale, 5*scale, -5*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_0}], FACE_COLOUR);
+                var topBackLeftCorner = makeCorner(FACES.TOP_BACK_LEFT_CORNER, 1.5*scale, -5*scale, 5*scale, -5*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomBackLeftCorner = makeCorner(FACES.BOTTOM_BACK_LEFT_CORNER, 1.5*scale, -5*scale, -5*scale, -5*scale, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_0
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+
+                // The Order Shouldn't Be Changed!!!
+                return [frontFace,rightFace,topFace,bottomFace,leftFace,backFace,frontRightEdge,topFrontEdge,frontLeftEdge,bottomFrontEdge,topRightEdge,topLeftEdge,bottomLeftEdge,bottomRightEdge,backRightEdge,topBackEdge,backLeftEdge,bottomBackEdge,topFrontRightCorner,topFrontLeftCorner,bottomFrontLeftCorner,bottomFrontRightCorner,topBackRightCorner,topBackLeftCorner,bottomBackLeftCorner,bottomBackRightCorner];
+            }
+            /*******************************END Create Box******************************/
+
+            /*******************************CREATE ViewBox*******************************/
+            function initViewBox(scene,targetMesh) {
+                // https://www.babylonjs-playground.com/#E9IRIF two view
+                if (scene.activeCameras.length === 0) {
+                    scene.activeCameras.push(scene.activeCamera);
+                }
+                // ViewBox
+                var viewBoxCenter = targetMesh||BABYLON.MeshBuilder.CreateBox("viewBoxCenter", {
+                    width: 0.001,
+                    height: 0.001,
+                    depth: 0.001
+                }, scene);
+                var viewBox = setupGeometry(13);
+
+                var arr = Object.keys(FACES);//总面数
+                // console.log("length:"+arr.length);
+
+                for (let i = 0; i < arr.length; i++) {
+                    viewBox[i].layerMask = 0x10000000;
+                }
+                // viewBox[6].excludeWithLayerMask = 0x10000000;
+                // viewBoxCenter.layerMask = 0x10000000;
+
+                //CameraView
+                // var cameraView = new BABYLON.ArcRotateCamera("cameraView", 0,0, 1000, BABYLON.Vector3.Zero(), scene);
+                cameraView = new BABYLON.ArcRotateCamera("cameraView", 3*Math.PI / 2, Math.PI / 2, 1000, viewBoxCenter.position, scene);
+                cameraView.layerMask = 0x10000000;//均匀光照 各面一致
+
+                // cameraView.target = viewBoxCenter;
+                cameraView.attachControl(canvas, true);
+                cameraView.viewport = new BABYLON.Viewport(.87, .85, .15, .15);
+                cameraView.lowerRadiusLimit = 300;
+                cameraView.upperRadiusLimit = 300;
+                cameraView.lowerAlphaLimit=null;
+                cameraView.upperAlphaLimit=null;
+                cameraView.lowerBetaLimit=null;
+                cameraView.upperBetaLimit=null;
+
+
+                // Texture Dynamic Viewcube各面贴图
+                var makeTextView = function (text, ang) {
+                    var dynamicTexture = new BABYLON.DynamicTexture("DynamicTextureForChar", 56, scene, true);
+                    dynamicTexture.drawText(text, null, 32, "bold 15px Arial", "white", backgroundColor, true);
+                    dynamicTexture.wAng = ang;
+                    return dynamicTexture;
+                };
+
+                // Material
+                var materialFront = new BABYLON.StandardMaterial("materialFront", scene);
+                materialFront.specularColor = BABYLON.Color3.Black();
+                materialFront.diffuseTexture = makeTextView("Front", 3.14);
+                materialFront.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialBack = new BABYLON.StandardMaterial("materialBack", scene);
+                materialBack.specularColor = BABYLON.Color3.Black();
+                materialBack.diffuseTexture = makeTextView("Back", 0);
+                materialBack.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialLeft = new BABYLON.StandardMaterial("materialLeft", scene);
+                materialLeft.specularColor = BABYLON.Color3.Black();
+                materialLeft.diffuseTexture = makeTextView("Left", 0);
+                materialLeft.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialRight = new BABYLON.StandardMaterial("materialRight", scene);
+                materialRight.specularColor = BABYLON.Color3.Black();
+                materialRight.diffuseTexture = makeTextView("Right", 0);
+                materialRight.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialTop = new BABYLON.StandardMaterial("materialTop", scene);
+                materialTop.specularColor = BABYLON.Color3.Black();
+                materialTop.diffuseTexture = makeTextView("Top", -1.57);
+                materialTop.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialBottom = new BABYLON.StandardMaterial("materialBottom", scene);
+                materialBottom.specularColor = BABYLON.Color3.Black();
+                materialBottom.diffuseTexture = makeTextView("Bottom", 1.57);
+                materialBottom.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+                var materialOthers = new BABYLON.StandardMaterial("materialOthers", scene);
+                materialOthers.specularColor = BABYLON.Color3.Black();
+                materialOthers.emissiveColor = new BABYLON.Color3.FromHexString("#b0b1b2");
+
+                viewBox[0].material = materialFront;
+                viewBox[1].material = materialRight;
+                viewBox[2].material = materialTop;
+                viewBox[3].material = materialBottom;
+                viewBox[4].material = materialLeft;
+                viewBox[5].material = materialBack;
+                for (let i = 6; i < arr.length; i++) {
+                    viewBox[i].material = materialOthers;
+                }
+
+
+                scene.activeCameras.push(cameraView);
+
+
+                /*****************************For TEST************************/
+                // var pickInfo;
+                function onPointerDown(evt) {
+                    var pickInfo = scene.pick(scene.pointerX, scene.pointerY, null, null, cameraView);
+                    if (pickInfo.hit) {
+                        console.log(pickInfo.pickedMesh.name);
+                        /*switch (pickInfo.pickedMesh.name) {
+                            case 0://front
+                                mouseClick();
+                                console.log("Click FRONT!");
+                                /!*camera.alpha=Math.PI/2;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=Math.PI/2;
+                                cameraView.beta=Math.PI/2;*!/
+                                break;
+                            case 1://right
+                                console.log("Click RIGHT!");
+                                camera.alpha=0;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=0;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 2://top
+                                console.log("Click TOP!");
+                                camera.alpha=0;
+                                camera.beta=0;
+                                cameraView.alpha=0;
+                                cameraView.beta=0;
+                                break;
+                            case 3://bottom
+                                console.log("Click BOTTOM!");
+                                camera.alpha=0;
+                                camera.beta=Math.PI;
+                                cameraView.alpha=0;
+                                cameraView.beta=Math.PI;
+                                break;
+                            case 4://left
+                                console.log("Click LEFT!");
+                                camera.alpha=Math.PI;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=Math.PI;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            case 5://back
+                                console.log("Click BACK!");
+                                camera.alpha=-Math.PI/2;
+                                camera.beta=Math.PI/2;
+                                cameraView.alpha=-Math.PI/2;
+                                cameraView.beta=Math.PI/2;
+                                break;
+                            default:
+                                console.log("error!");
+                        }*/
+                        scene.activeCameras.push(cameraView);
+                    }
+                }
+
+                // canvas.addEventListener("pointerdown", onPointerDown, false);
+
+                /*****************************END TEST************************/
+
+                //https://playground.babylonjs.com/#J6AF0X  action change colorw
+                var hoverMaterial = new BABYLON.StandardMaterial("hoverMaterial", scene);
+                // hoverMaterial.emissiveColor = new BABYLON.Color3(0.537, 0.678, 0.875);
+                hoverMaterial.emissiveColor = new BABYLON.Color3.FromHexString("#83d1ff")
+                hoverMaterial.alpha = 1.0;
+
+
+                //shortest rotation to some point.
+                //https://www.babylonjs-playground.com/#CZRC0#4
+
+                var rotateFunc =function(alphaPresent,betaPresent){
+                    var toAlpha=null;
+                    var toBeta=null;
+                    //alpha
+                    var alphaLast=cameraView.alpha;
+                    var alphaDelta=alphaLast%(2*Math.PI);//[0,2Pi]
+                    var alphaLarge=alphaLast-alphaDelta;//alpha的2pi整周数
+                    // var angle=alphaDelta-alphaPresent;
+                    var absAlphaAngle=Math.abs(alphaDelta-alphaPresent);
+                    if(absAlphaAngle>Math.PI){//出现换挡问题 0跳到2Pi或2Pi跳到0
+                        if(alphaDelta >= alphaPresent){//正向旋转
+                            toAlpha =alphaPresent +alphaLarge + 2*Math.PI;
+                        }
+                        else{
+                            toAlpha =alphaPresent +alphaLarge - 2*Math.PI;
+                        }
+                    }
+                    else {
+                        toAlpha =alphaPresent+alphaLarge;
+                    }
+                    //beta
+                    var betaLast=cameraView.beta;
+                    var absBetaAngle=Math.abs(betaLast-betaPresent);
+                    if(absBetaAngle>Math.PI){
+                        if(betaLast >= betaPresent){//正向旋转
+                            toBeta =betaPresent + 2*Math.PI;
+                        }
+                        else{
+                            toBeta =betaPresent - 2*Math.PI;
+                        }
+                    }
+                    else {
+                        toBeta =betaPresent;
+                    }
+
+                    return [toAlpha,toBeta];
+                };
+
+                BABYLON.AbstractMesh.prototype.moveTo = function (targetPos, speed) {
+                    var ease = new BABYLON.CubicEase();
+                    ease.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEINOUT);
+                    // create a quick animation
+                    // Animation.CreateAndStartAnimation = function(name, mesh, targetProperty, framePerSecond, totalFrame, from, to, loopMode);
+                    BABYLON.Animation.CreateAndStartAnimation('at5', this, 'position', speed, 120, this.position, targetPos, 0, ease);
+                };
+
+                /********************ArcCameraAnimation********************/
+                // http://www.html5gamedevs.com/topic/5738-arcrotatecamera-animation/
+                var ArcAnimation = function (toAlpha, toBeta, toRadius, position) {
+
+                    var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                    var keysAlpha = [];
+                    keysAlpha.push({
+                        frame: 0,
+                        value: camera.alpha
+                    });
+                    keysAlpha.push({
+                        frame: 100,
+                        value: toAlpha
+                    });
+
+                    var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                    var keysBeta = [];
+                    keysBeta.push({
+                        frame: 0,
+                        value: camera.beta
+                    });
+                    keysBeta.push({
+                        frame: 100,
+                        value: toBeta
+                    });
+
+                    var animCamRadius = new BABYLON.Animation("animCam", "radius", 30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                    var keysRadius = [];
+                    keysRadius.push({
+                        frame: 0,
+                        value: camera.radius
+                    });
+                    keysRadius.push({
+                        frame: 100,
+                        value: toRadius
+                    });
+
+                    animCamAlpha.setKeys(keysAlpha);
+                    animCamBeta.setKeys(keysBeta);
+                    animCamRadius.setKeys(keysRadius);
+
+                    camera.animations.push(animCamAlpha);
+                    camera.animations.push(animCamBeta);
+                    camera.animations.push(animCamRadius);
+                    scene.beginAnimation(camera, 0, 100, false, 1, function () { });
+
+                };
+
+                // ArcAnimation(Math.PI * 2, 1.5, 50, camera.position);
+                /********************End ArcCameraAnimation********************/
+
+
+                // https://www.babylonjs-playground.com/#J19GYK#25
+                var mouseClick = function (num) {
+                    switch (num) {
+                        case 0:// FRONT
+                            viewBox[0].actionManager = new BABYLON.ActionManager(scene);
+                            // viewBox[0].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function(){
+                            //     var alphaPresent=Math.PI / 2;
+                            //     var alphaLast=cameraView.alpha;
+                            //     var alphaDelta=alphaLast%(2*Math.PI);//[0,2Pi]
+                            //     var alphaLarge=alphaLast-alphaDelta;//alpha的2pi整周数
+                            //     var absAngle=Math.abs(alphaDelta-alphaPresent);
+                            //     if(absAngle>Math.PI){//出现换挡问题 0跳到2Pi或2Pi跳到0
+                            //         if(alphaDelta >= alphaPresent){//正向旋转
+                            //             // cameraView.alpha =alphaPresent +alphaLarge + 2*Math.PI;
+                            //             rotateAngle =alphaPresent +alphaLarge + 2*Math.PI;
+                            //         }
+                            //         else{
+                            //             rotateAngle =alphaPresent +alphaLarge - 2*Math.PI;
+                            //         }
+                            //     }
+                            //     else {
+                            //         rotateAngle =alphaPresent +alphaLarge;
+                            //     }
+                            //     return rotateAngle;
+                            // }))
+                            //     .then(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.NothingTrigger, camera, "alpha", rotateAngle, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "alpha", rotateAngle, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "beta", Math.PI / 2+integerBeta, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "alpha", rotateAngle, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "beta", Math.PI / 2+integerBeta, 300));
+                            // var condition1 = new BABYLON.StateCondition(viewBox[0].actionManager, light1, "off");
+                            /*viewBox[0].actionManager.registerAction(new BABYLON.CombineAction(BABYLON.ActionManager.OnLeftPickTrigger,[
+                                new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.NothingTrigger,function(){
+                                    var alphaPresent=Math.PI / 2;
+                                    var alphaLast=cameraView.alpha;
+                                    var alphaDelta=alphaLast%(2*Math.PI);//[0,2Pi]
+                                    var alphaLarge=alphaLast-alphaDelta;//alpha的2pi整周数
+                                    var absAngle=Math.abs(alphaDelta-alphaPresent);
+                                    if(absAngle>Math.PI){//出现换挡问题 0跳到2Pi或2Pi跳到0
+                                        if(alphaDelta >= alphaPresent){//正向旋转
+                                            // cameraView.alpha =alphaPresent +alphaLarge + 2*Math.PI;
+
+                                            rotateAngle =alphaPresent +alphaLarge + 2*Math.PI;
+                                        }
+                                        else{
+                                            rotateAngle =alphaPresent +alphaLarge - 2*Math.PI;
+                                        }
+                                    }
+                                    else {
+                                        rotateAngle =alphaPresent +alphaLarge;
+                                    }
+                                    return rotateAngle;
+                                },true)
+                                ,new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.NothingTrigger,function(){
+                                    console.log("rotateAngle:"+rotateAngle);
+                                },true)
+                                ,new BABYLON.InterpolateValueAction(BABYLON.ActionManager.NothingTrigger, cameraView, "alpha", rotateAngle, 300,true)
+                                ,new BABYLON.InterpolateValueAction(BABYLON.ActionManager.NothingTrigger, camera, "alpha", rotateAngle, 300,true)]));
+                                // .then(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.NothingTrigger, camera, "alpha", rotateAngle, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "alpha", rotateAngle, 300));
+                            viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "beta", Math.PI / 2+integerBeta, 300));
+                            // viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "alpha", rotateAngle, 300));
+                            viewBox[0].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "beta", Math.PI / 2+integerBeta, 300));
+                            viewBox[0].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[0], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[0].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[0], "material.alpha", FACE_OPACITY_MOUSE_OFF));*/
+                            viewBox[0].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+
+                                var toAlpha=rotateFunc(Math.PI/2,Math.PI / 2)[0];
+                                var toBeta=rotateFunc(Math.PI/2,Math.PI / 2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[0].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[0], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[0].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[0], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 1:// RIGHT
+                            viewBox[1].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[1].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(0,Math.PI / 2)[0];
+                                var toBeta=rotateFunc(0,Math.PI / 2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            // viewBox[1].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "alpha", 0+integerAlpha, 300));
+                            // viewBox[1].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, camera, "beta", Math.PI / 2+integerAlpha, 300));
+                            // viewBox[1].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "alpha", 0+integerAlpha, 300));
+                            // viewBox[1].actionManager.registerAction(new BABYLON.InterpolateValueAction(BABYLON.ActionManager.OnLeftPickTrigger, cameraView, "beta", Math.PI / 2+integerAlpha, 300));
+                            viewBox[1].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[1], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[1].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[1], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 2://top
+                            viewBox[2].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[2].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(0,0)[0];
+                                var toBeta=rotateFunc(0,0)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[2].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[2], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[2].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[2], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 3://bottom
+                            viewBox[3].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[3].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(0,Math.PI)[0];
+                                var toBeta=rotateFunc(0,Math.PI)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[3].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[3], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[3].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[3], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 4://left
+                            viewBox[4].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[4].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI,Math.PI/2)[0];
+                                var toBeta=rotateFunc(Math.PI,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[4].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[4], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[4].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[4], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 5://back
+                            viewBox[5].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[5].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 2,Math.PI/2)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 2,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[5].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[5], "material.alpha", FACE_OPACITY_MOUSE_OVER));
+                            viewBox[5].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[5], "material.alpha", FACE_OPACITY_MOUSE_OFF));
+                            break;
+                        case 6:// FRONT_RIGHT
+                            viewBox[6].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[6].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI / 4,Math.PI/2)[0];
+                                var toBeta=rotateFunc(Math.PI / 4,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[6].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[6], "material", hoverMaterial));
+                            viewBox[6].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[6], "material", materialOthers));
+                            break;
+                        case 7:// TOP_FRONT
+                            viewBox[7].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[7].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI / 2,Math.PI/4)[0];
+                                var toBeta=rotateFunc(Math.PI / 2,Math.PI/4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[7].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[7], "material", hoverMaterial));
+                            viewBox[7].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[7], "material", materialOthers));
+                            break;
+                        case 8:// FRONT_LEFT
+                            viewBox[8].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[8].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 4,Math.PI/2)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 4,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[8].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[8], "material", hoverMaterial));
+                            viewBox[8].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[8], "material", materialOthers));
+                            break;
+                        case 9:// BOTTOM_FRONT
+                            viewBox[9].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[9].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI/2,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(Math.PI/2,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[9].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[9], "material", hoverMaterial));
+                            viewBox[9].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[9], "material", materialOthers));
+                            break;
+                        case 10:// TOP_RIGHT
+                            viewBox[10].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[10].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(0,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(0,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[10].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[10], "material", hoverMaterial));
+                            viewBox[10].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[10], "material", materialOthers));
+                            break;
+                        case 11:// TOP_LEFT
+                            viewBox[11].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[11].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(Math.PI,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[11].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[11], "material", hoverMaterial));
+                            viewBox[11].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[11], "material", materialOthers));
+                            break;
+                        case 12:// BOTTOM_LEFT
+                            viewBox[12].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[12].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI,3*Math.PI/4)[0];
+                                var toBeta=rotateFunc(Math.PI,3*Math.PI/4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[12].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[12], "material", hoverMaterial));
+                            viewBox[12].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[12], "material", materialOthers));
+                            break;
+                        case 13:// BOTTOM_RIGHT
+                            viewBox[13].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[13].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(0,3*Math.PI/4)[0];
+                                var toBeta=rotateFunc(0,3*Math.PI/4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[13].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[13], "material", hoverMaterial));
+                            viewBox[13].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[13], "material", materialOthers));
+                            break;
+                        case 14:// BACK_RIGHT
+                            viewBox[14].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[14].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(7*Math.PI/4,Math.PI/2)[0];
+                                var toBeta=rotateFunc(7*Math.PI/4,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[14].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[14], "material", hoverMaterial));
+                            viewBox[14].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[14], "material", materialOthers));
+                            break;
+                        case 15:// TOP_BACK
+                            viewBox[15].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[15].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 2,Math.PI/4)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 2,Math.PI/4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[15].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[15], "material", hoverMaterial));
+                            viewBox[15].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[15], "material", materialOthers));
+                            break;
+                        case 16:// BACK_LEFT
+                            viewBox[16].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[16].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(5*Math.PI/4,Math.PI/2)[0];
+                                var toBeta=rotateFunc(5*Math.PI/4,Math.PI/2)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[16].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[16], "material", hoverMaterial));
+                            viewBox[16].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[16], "material", materialOthers));
+                            break;
+                        case 17:// BOTTOM_BACK
+                            viewBox[17].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[17].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 2,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 2,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[17].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[17], "material", hoverMaterial));
+                            viewBox[17].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[17], "material", materialOthers));
+                            break;
+                        case 18:// TOP_FRONT_RIGHT
+                            viewBox[18].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[18].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI / 4,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(Math.PI / 4,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[18].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[18], "material", hoverMaterial));
+                            viewBox[18].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[18], "material", materialOthers));
+                            break;
+                        case 19:// TOP_FRONT_LEFT
+                            viewBox[19].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[19].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 4,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 4,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[19].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[19], "material", hoverMaterial));
+                            viewBox[19].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[19], "material", materialOthers));
+                            break;
+                        case 20:// BOTTOM_FRONT_LEFT
+                            viewBox[20].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[20].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(3*Math.PI / 4,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(3*Math.PI / 4,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[20].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[20], "material", hoverMaterial));
+                            viewBox[20].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[20], "material", materialOthers));
+                            break;
+                        case 21:// BOTTOM_FRONT_RIGHT
+                            viewBox[21].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[21].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(Math.PI / 4,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(Math.PI / 4,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[21].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[21], "material", hoverMaterial));
+                            viewBox[21].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[21], "material", materialOthers));
+                            break;
+                        case 22:// TOP_BACK_RIGHT
+                            viewBox[22].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[22].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(7*Math.PI / 4,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(7*Math.PI / 4,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[22].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[22], "material", hoverMaterial));
+                            viewBox[22].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[22], "material", materialOthers));
+                            break;
+                        case 23:// TOP_BACK_LEFT
+                            viewBox[23].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[23].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(5*Math.PI / 4,Math.PI / 4)[0];
+                                var toBeta=rotateFunc(5*Math.PI / 4,Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[23].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[23], "material", hoverMaterial));
+                            viewBox[23].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[23], "material", materialOthers));
+                            break;
+                        case 24:// BOTTOM_BACK_LEFT
+                            viewBox[24].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[24].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(5*Math.PI / 4,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(5*Math.PI / 4,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[24].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[24], "material", hoverMaterial));
+                            viewBox[24].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[24], "material", materialOthers));
+                            break;
+                        case 25:// BOTTOM_BACK_RIGHT
+                            viewBox[25].actionManager = new BABYLON.ActionManager(scene);
+                            viewBox[25].actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnLeftPickTrigger,function () {
+                                var toAlpha=rotateFunc(7*Math.PI / 4,3*Math.PI / 4)[0];
+                                var toBeta=rotateFunc(7*Math.PI / 4,3*Math.PI / 4)[1];
+
+                                var animCamAlpha = new BABYLON.Animation("animCam", "alpha", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysAlpha = [];
+                                keysAlpha.push({
+                                    frame: 0,
+                                    value: camera.alpha
+                                });
+                                keysAlpha.push({
+                                    frame: 15,
+                                    value: toAlpha
+                                });
+
+                                var animCamBeta = new BABYLON.Animation("animCam", "beta", 30,
+                                    BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                                    BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                                var keysBeta = [];
+                                keysBeta.push({
+                                    frame: 0,
+                                    value: camera.beta
+                                });
+                                keysBeta.push({
+                                    frame: 15,
+                                    value: toBeta
+                                });
+
+                                animCamAlpha.setKeys(keysAlpha);
+                                animCamBeta.setKeys(keysBeta);
+
+                                camera.animations.push(animCamAlpha);
+                                camera.animations.push(animCamBeta);
+                                cameraView.animations.push(animCamAlpha);
+                                cameraView.animations.push(animCamBeta);
+                                scene.beginAnimation(camera, 0, 15, false);
+                                scene.beginAnimation(cameraView, 0, 15, false);
+
+                            }));
+                            viewBox[25].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOverTrigger, viewBox[25], "material", hoverMaterial));
+                            viewBox[25].actionManager.registerAction(new BABYLON.SetValueAction(BABYLON.ActionManager.OnPointerOutTrigger, viewBox[25], "material", materialOthers));
+                            break;
+                        default:
+                            console.log("error!");
+                    }
+                };
+
+                // ADD mouseClick event
+                for (let i = 0; i < arr.length; i++) {
+                    mouseClick(i);
+                }
+
+                // mouseHover(viewBox);//...onHover,other meshes'ispickable is false.
+            }
+            /*******************************End CREATE ViewBox*******************************/
+
+            initViewBox(scene,pilot);
+
+            // var cam_initial_alpha = camera.alpha;
+            // var camView_initial_alpha = camera.alpha;
+
+            // Animations
+            scene.registerBeforeRender(function () {
+                // console.log("CVa:"+cameraView.alpha);
+                // console.log("CVb:"+cameraView.beta);
+                // console.log("Ca:"+camera.alpha);
+                // console.log("Cb:"+camera.beta);
+                // if (camera.alpha > (Math.PI*2) + cam_initial_alpha) camera.alpha = cam_initial_alpha;
+                // if (camera.alpha < (-Math.PI*2) + cam_initial_alpha) camera.alpha = cam_initial_alpha;
+                // if (cameraView.alpha > (Math.PI*2) + camView_initial_alpha) cameraView.alpha = camView_initial_alpha;
+                // if (cameraView.alpha < (-Math.PI*2) + camView_initial_alpha) cameraView.alpha = camView_initial_alpha;
+                // if (camera.alpha>=Math.PI*2) camera.alpha=camera.alpha-Math.PI*2;
+                // if (camera.alpha<0) camera.alpha=camera.alpha+Math.PI*2;
+                // if (cameraView.alpha>=Math.PI*2) cameraView.alpha=cameraView.alpha-Math.PI*2;
+                // if (cameraView.alpha<0) cameraView.alpha=cameraView.alpha+Math.PI*2;
+            });
+
+
+            return scene;
+        };
+        
+        var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        var scene = createScene();
+        scene.debugLayer.show();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>

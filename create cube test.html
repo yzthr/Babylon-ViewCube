@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+        
+            //Camera
+            camera=new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2,  Math.PI / 2, 100, BABYLON.Vector3.Zero(), scene);
+            camera.setPosition(new BABYLON.Vector3(0,.5,-10));
+            camera.attachControl(canvas, true);
+            // scene.activeCameras.push(camera);
+
+            //light
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 1;
+
+            var pl = new BABYLON.PointLight("pl", new BABYLON.Vector3(100,0,0), scene);
+            pl.diffuse = new BABYLON.Color3(1, 1, 1);
+            pl.specular = new BABYLON.Color3(1, 1, 1);
+            pl.intensity = 0.8;
+
+            //Add Parameters
+            var FACES = {
+                TOP: 0,
+                FRONT: 1,
+                RIGHT: 2,
+                BACK: 3,
+                LEFT: 4,
+                BOTTOM: 5,
+
+                TOP_FRONT_EDGE: 6,
+                TOP_RIGHT_EDGE: 7,
+                TOP_BACK_EDGE: 8,
+                TOP_LEFT_EDGE: 9,
+
+                FRONT_RIGHT_EDGE: 10,
+                BACK_RIGHT_EDGE: 11,
+                BACK_LEFT_EDGE: 12,
+                FRONT_LEFT_EDGE: 13,
+
+                BOTTOM_FRONT_EDGE: 14,
+                BOTTOM_RIGHT_EDGE: 15,
+                BOTTOM_BACK_EDGE: 16,
+                BOTTOM_LEFT_EDGE: 17,
+
+                TOP_FRONT_RIGHT_CORNER: 18,
+                TOP_BACK_RIGHT_CORNER: 19,
+                TOP_BACK_LEFT_CORNER: 20,
+                TOP_FRONT_LEFT_CORNER: 21,
+
+                BOTTOM_FRONT_RIGHT_CORNER: 22,
+                BOTTOM_BACK_RIGHT_CORNER: 23,
+                BOTTOM_BACK_LEFT_CORNER: 24,
+                BOTTOM_FRONT_LEFT_CORNER: 25
+            };
+
+            var FACE_COLOUR = new BABYLON.Color3.FromHexString("#4a5f70");
+            var FACE_OPACITY_MOUSE_OFF = 0.0;
+            var FACE_OPACITY_MOUSE_OVER = 0.8;
+
+            var backgroundColor = new BABYLON.Color3.FromHexString("#000000");
+            var camera = null;
+
+            var renderer = null;
+
+
+
+
+            /************Start Pilot*********************************/
+            // var body = BABYLON.MeshBuilder.CreateCylinder("body", { height: 0.75, diameterTop: 0.2, diameterBottom: 0.5, tessellation: 6, subdivisions: 1 }, scene);
+            // var arm = BABYLON.MeshBuilder.CreateBox("arm", { height: 0.75, width: 0.3, depth: 0.1875 }, scene);
+            // arm.position.x = 0.125;
+            // var pilot = BABYLON.Mesh.MergeMeshes([body, arm], true);
+            //
+            // var localOrigin = localAxes(10);
+            // localOrigin.parent = pilot;
+            /*************End Pilot****************************************/
+
+            /*******************************Local Axes****************************/
+            function localAxes(size) {
+                var pilot_local_axisX = BABYLON.Mesh.CreateLines("pilot_local_axisX", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, 0.05 * size, 0),
+                    new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, -0.05 * size, 0)
+                ], scene);
+                pilot_local_axisX.color = new BABYLON.Color3(1, 0, 0);
+
+                var pilot_local_axisY = BABYLON.Mesh.CreateLines("pilot_local_axisY", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(-0.05 * size, size * 0.95, 0),
+                    new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(0.05 * size, size * 0.95, 0)
+                ], scene);
+                pilot_local_axisY.color = new BABYLON.Color3(0, 1, 0);
+
+                var pilot_local_axisZ = BABYLON.Mesh.CreateLines("pilot_local_axisZ", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, -0.05 * size, size * 0.95),
+                    new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, 0.05 * size, size * 0.95)
+                ], scene);
+                pilot_local_axisZ.color = new BABYLON.Color3(0, 0, 1);
+
+                var local_origin = BABYLON.MeshBuilder.CreateBox("local_origin", { size: 1 }, scene);
+                local_origin.isVisible = false;
+
+                pilot_local_axisX.parent = local_origin;
+                pilot_local_axisY.parent = local_origin;
+                pilot_local_axisZ.parent = local_origin;
+
+                return local_origin;
+
+            }
+            /*******************************End Local Axes****************************/
+
+            /*function setupGeometry() //初始化几何部件
+            {
+                var self = this;
+
+                var ROTATE_0 = 0;
+                var ROTATE_90 = Math.PI / 2;
+                var ROTATE_180 = Math.PI;
+                var ROTATE_270 = Math.PI * 1.5;
+                var ROTATE_360 = Math.PI * 2;
+
+                var X_AXIS = new BABYLON.Vector3(1, 0, 0);
+                var Y_AXIS = new BABYLON.Vector3(0, 1, 0);
+                var Z_AXIS = new BABYLON.Vector3(0, 0, 1);
+
+                self.control = new THREE.Object3D();
+                // self.cube = new THREE.Object3D();
+                var cube=new BABYLON.TransformNode("cube");
+
+                // labels
+                /!*var material1 = new THREE.MeshPhongMaterial({
+                    color: 0xAAAAAA,
+                    map: THREE.ImageUtils.loadTexture('lib/img/top.png'),
+                    opacity: 1.0,
+                    transparent: true
+                });*!/
+                var material1 = new BABYLON.StandardMaterial("myMaterial1", scene);
+                material1.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material1.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/top.png", scene);
+                material1.diffuseTexture.hasAlpha = true;
+
+                var material2 = new BABYLON.StandardMaterial("myMaterial2", scene);
+                material2.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material2.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/front.png", scene);
+                material2.diffuseTexture.hasAlpha = true;
+
+                var material3 = new BABYLON.StandardMaterial("myMaterial3", scene);
+                material3.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material3.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/right.png", scene);
+                material3.diffuseTexture.hasAlpha = true;
+
+                var material4 = new BABYLON.StandardMaterial("myMaterial4", scene);
+                material4.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material4.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/back.png", scene);
+                material4.diffuseTexture.hasAlpha = true;
+
+                var material5 = new BABYLON.StandardMaterial("myMaterial5", scene);
+                material5.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material5.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/left.png", scene);
+                material5.diffuseTexture.hasAlpha = true;
+
+                var material6 = new BABYLON.StandardMaterial("myMaterial6", scene);
+                material6.diffuseColor=new BABYLON.Color3.FromHexString("#AAAAAA");
+                material6.diffuseTexture=new BABYLON.Texture("threejs-viewcube/lib/img/bottom.png", scene);
+                material6.diffuseTexture.hasAlpha = true;
+
+                var materials = [
+                    material2, material5, material3,
+                    material4, material1, material6
+                ];
+
+                // var geometry = new THREE.BoxGeometry(99, 99, 99);
+                var labels = BABYLON.MeshBuilder.CreateBox("box", {height: 99, width: 99, depth: 99}, scene);
+                // var material = new THREE.MeshFaceMaterial(materials);
+                // var labels = new THREE.Mesh(geometry, material);
+                labels.material=materials;//?
+                labels.name = 'labels';
+                self.scene.add(labels);
+
+                // faces
+                // var topFace    = self.makeFace(self.FACES.TOP,    70,   0,   0,  50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+                var topFace    = makeFace(FACES.TOP,    70,   0,   0,  50, [{axis:Z_AXIS, rad:ROTATE_90}],FACE_COLOUR);
+                var frontFace  = makeFace(FACES.FRONT,  70,  50,   0,   0, [{axis:Y_AXIS, rad:ROTATE_90},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var rightFace  = makeFace(FACES.RIGHT,  70,   0,  50,   0, [{axis:X_AXIS, rad:ROTATE_270},{axis:Z_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var leftFace   = makeFace(FACES.LEFT,   70,   0, -50,   0, [{axis:X_AXIS, rad:ROTATE_90},{axis:Z_AXIS, rad:ROTATE_360}], FACE_COLOUR);
+                var backFace   = makeFace(FACES.BACK,   70, -50,   0,   0, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_270}], FACE_COLOUR);
+                var bottomFace = makeFace(FACES.BOTTOM, 70,   0,   0, -50, [{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+
+                // edges
+                var topFrontEdge    = makeEdge(FACES.TOP_FRONT_EDGE, 70, 15,  50,   0, 50, [{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var topRightEdge    = makeEdge(FACES.TOP_RIGHT_EDGE, 70, 15,   0,  50, 50, [{axis:Z_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var topBackEdge     = makeEdge(FACES.TOP_BACK_EDGE, 70, 15, -50,   0, 50, [{axis:Z_AXIS, rad:ROTATE_270}], FACE_COLOUR);
+                var topLeftEdge     = makeEdge(FACES.TOP_LEFT_EDGE, 70, 15,   0, -50, 50, [{axis:Z_AXIS, rad:ROTATE_360}], FACE_COLOUR);
+
+                var bottomFrontEdge = makeEdge(FACES.BOTTOM_FRONT_EDGE, 70, 15,  50,   0, -50, [{axis:Z_AXIS, rad:ROTATE_90}, {axis:Y_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var bottomRightEdge = makeEdge(FACES.BOTTOM_RIGHT_EDGE, 70, 15,   0,  50, -50, [{axis:Z_AXIS, rad:ROTATE_180},{axis:Y_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var bottomBackEdge  = makeEdge(FACES.BOTTOM_BACK_EDGE, 70, 15, -50,   0, -50, [{axis:Z_AXIS, rad:ROTATE_270},{axis:Y_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var bottomLeftEdge  = makeEdge(FACES.BOTTOM_LEFT_EDGE, 70, 15,   0, -50, -50, [{axis:Z_AXIS, rad:ROTATE_360},{axis:Y_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+
+                var frontRightEdge  = makeEdge(FACES.FRONT_RIGHT_EDGE, 70, 15,  50,  50, 0, [{axis:X_AXIS, rad:ROTATE_180},{axis:Y_AXIS, rad:ROTATE_90},{axis:Z_AXIS, rad:0}], FACE_COLOUR);
+                var backRightEdge   = makeEdge(FACES.BACK_RIGHT_EDGE, 70, 15, -50,  50, 0, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var backLeftEdge    = makeEdge(FACES.BACK_LEFT_EDGE, 70, 15, -50, -50, 0, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_270},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var frontLeftEdge   = makeEdge(FACES.FRONT_LEFT_EDGE, 70, 15,  50, -50, 0, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_360},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+
+                // corners
+                var topFrontLeftCorner  = makeCorner(FACES.TOP_FRONT_LEFT_CORNER,  15,  50, -50, 50, [{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var topFrontRightCorner = makeCorner(FACES.TOP_FRONT_RIGHT_CORNER, 15,  50,  50, 50, [{axis:Z_AXIS, rad:ROTATE_180}], FACE_COLOUR);
+                var topBackRightCorner  = makeCorner(FACES.TOP_BACK_RIGHT_CORNER,  15, -50,  50, 50, [{axis:Z_AXIS, rad:ROTATE_270}], FACE_COLOUR);
+                var topBackLeftCorner   = makeCorner(FACES.TOP_BACK_LEFT_CORNER,   15, -50, -50, 50, [{axis:Z_AXIS, rad:ROTATE_360}], FACE_COLOUR);
+
+                var bottomFrontLeftCorner  = makeCorner(FACES.BOTTOM_FRONT_LEFT_CORNER,  15,  50, -50, -50, [{axis:X_AXIS, rad:ROTATE_0},{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_0}], FACE_COLOUR);
+                var bottomFrontRightCorner = makeCorner(FACES.BOTTOM_FRONT_RIGHT_CORNER, 15,  50,  50, -50, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_0}], FACE_COLOUR);
+                var bottomBackRightCorner  = makeCorner(FACES.BOTTOM_BACK_RIGHT_CORNER,  15, -50,  50, -50, [{axis:X_AXIS, rad:ROTATE_90},{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+                var bottomBackLeftCorner   = makeCorner(FACES.BOTTOM_BACK_LEFT_CORNER,   15, -50, -50, -50, [{axis:X_AXIS, rad:ROTATE_0},{axis:Y_AXIS, rad:ROTATE_180},{axis:Z_AXIS, rad:ROTATE_90}], FACE_COLOUR);
+
+                // self.cube.add(topFace);// Note that this can be used for grouping objects via the .add( object ) method which adds the object as a child
+                // 合并为cube
+                topFace.setParent=cube;
+                frontFace.setParent=cube;
+                rightFace.setParent=cube;
+                backFace.setParent=cube;
+                leftFace.setParent=cube;
+                bottomFace.setParent=cube;
+
+                //merge edge
+                topFrontEdge.setParent=cube;
+                topRightEdge.setParent=cube;
+                topBackEdge.setParent=cube;
+                topLeftEdge.setParent=cube;
+
+                bottomFrontEdge.setParent=cube;
+                bottomRightEdge.setParent=cube;
+                bottomBackEdge.setParent=cube;
+                bottomLeftEdge.setParent=cube;
+
+                frontRightEdge.setParent=cube;
+                backRightEdge.setParent=cube;
+                backLeftEdge.setParent=cube;
+                frontLeftEdge.setParent=cube;
+
+                // self.cube.add(topFrontLeftCorner);
+                topFrontLeftCorner.setParent=cube;
+                topFrontRightCorner.setParent=cube;
+                topBackRightCorner.setParent=cube;
+                topBackLeftCorner.setParent=cube;
+
+                bottomFrontLeftCorner.setParent=cube;
+                bottomFrontRightCorner.setParent=cube;
+                bottomBackRightCorner.setParent=cube;
+                bottomBackLeftCorner.setParent=cube;
+
+                /!*!// compass
+                self.compass = new THREE.Object3D();
+                var circle = self.makeCompass('compass', 0, 0, -55, 90, 64, self.COMPASS_COLOR, self.COMPASS_OPACITY);
+
+                self.compass.add(circle);*!/
+
+                // add
+                self.scene.add(self.cube);
+                self.scene.add(self.compass);
+            }*/
+
+            function makeFace(name, w, x, y, z, rotations, color)
+            // var rightFace  = self.makeFace(self.FACES.RIGHT,  70,   0,  50,   0, [{axis:X_AXIS, rad:ROTATE_270},{axis:Z_AXIS, rad:ROTATE_180}], self.FACE_COLOUR);
+            {
+                var myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                var face=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face.material=myMaterial;
+                // myMaterial.backFaceCulling=false;//试验添加
+
+                face.name = name;//string
+                face.position.x=x;
+                face.position.y=y;
+                face.position.z=z;
+                rotations.forEach(function (rotation) {
+                    face.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);//https://www.babylonjs-playground.com/#C12LH3#7
+                });
+                return face;
+            }
+
+            function makeEdge(name, w, h, x, y, z, rotations, color) //var topFrontEdge    = self.makeEdge(self.FACES.TOP_FRONT_EDGE, 70, 15,  50,   0, 50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+            {
+                var face1, face2, myMaterial, obj;
+
+                myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                face1=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: h}, scene);
+                face1.material=myMaterial;
+                face1.name = name;
+                face1.position.y=h / 2;
+                face1.rotate(new BABYLON.Vector3(0,1,0), Math.PI, BABYLON.Space.LOCAL);
+
+                face2=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: h}, scene);
+                face2.material=myMaterial;
+                face2.name = name;
+                face2.position.z=-h / 2;
+                face2.rotate(new BABYLON.Vector3(1,0,0), 3*Math.PI/2, BABYLON.Space.LOCAL);
+
+                obj=BABYLON.Mesh.MergeMeshes([face1,face2],true,true,null,false);
+                obj.name=name;
+                obj.position.x=x;
+                obj.position.y=y;
+                obj.position.z=z;
+
+                rotations.forEach(function (rotation) {
+                    obj.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);
+                });
+                return obj;
+            }
+
+            function makeCorner(name, w, x, y, z, rotations, color)
+            // var topFrontLeftCorner  = self.makeCorner(self.FACES.TOP_FRONT_LEFT_CORNER, 15,  50, -50, 50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+            {
+                var face1, face2, face3, myMaterial, obj;
+
+                myMaterial=new BABYLON.StandardMaterial("myMaterial", scene);
+                myMaterial.diffuseColor=color;
+                face1=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face1.material=myMaterial;
+                face1.name = name;
+                face1.position.x=w/2;
+                face1.position.y=w/2;
+                face1.rotate(new BABYLON.Vector3(1,0,0), Math.PI, BABYLON.Space.LOCAL);
+
+                face2=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face2.material=myMaterial;
+                face2.name = name;
+                face2.position.x=w / 2;
+                face2.position.z=-w / 2;
+                face2.rotate(new BABYLON.Vector3(1,0,0), 3*Math.PI / 2,BABYLON.Space.LOCAL);
+
+                face3=new BABYLON.MeshBuilder.CreatePlane("myPlane", {width: w, height: w}, scene);
+                face3.material=myMaterial;
+                face3.name = name;
+                face3.position.y=w / 2;
+                face3.position.z=-w / 2;
+                face3.rotate(new BABYLON.Vector3(0,1,0), Math.PI / 2,BABYLON.Space.LOCAL);
+
+                obj=BABYLON.Mesh.MergeMeshes([face1,face2,face3],true,true,null,false);
+                obj.name = name;
+                obj.position.x = x;
+                obj.position.y = y;
+                obj.position.z = z;
+
+                rotations.forEach(function (rotation) {
+                    obj.rotate(rotation.axis, rotation.rad,BABYLON.Space.LOCAL);
+                });
+                return obj;
+            }
+
+            function setupGeometry() //初始化几何部件
+            {
+                var ROTATE_0 = 0;
+                var ROTATE_90 = Math.PI / 2;
+                var ROTATE_180 = Math.PI;
+                var ROTATE_270 = Math.PI * 1.5;
+                var ROTATE_360 = Math.PI * 2;
+
+                var X_AXIS = new BABYLON.Vector3(1, 0, 0);
+                var Y_AXIS = new BABYLON.Vector3(0, 1, 0);
+                var Z_AXIS = new BABYLON.Vector3(0, 0, 1);
+
+                // var cube = new BABYLON.TransformNode("cube");
+
+                // faces
+                // var topFace    = self.makeFace(self.FACES.TOP,    70,   0,   0,  50, [{axis:Z_AXIS, rad:ROTATE_90}], self.FACE_COLOUR);
+                var topFace = makeFace(FACES.TOP, 7, 0, 0, 5, [{axis: X_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var frontFace = makeFace(FACES.FRONT, 7, 5, 0, 0, [{axis: Y_AXIS, rad: ROTATE_270}], FACE_COLOUR);
+                var rightFace = makeFace(FACES.RIGHT, 7, 0, 5, 0, [{axis: X_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var leftFace = makeFace(FACES.LEFT, 7, 0, -5, 0, [{axis: X_AXIS, rad: ROTATE_270}], FACE_COLOUR);
+                var backFace = makeFace(FACES.BACK, 7, -5, 0, 0, [{axis: Y_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomFace = makeFace(FACES.BOTTOM, 7, 0, 0, -5, [], FACE_COLOUR);
+
+                // edges
+                var topFrontEdge = makeEdge(FACES.TOP_FRONT_EDGE, 7, 1.5, 5, 0, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }], FACE_COLOUR);
+                var topRightEdge = makeEdge(FACES.TOP_RIGHT_EDGE, 7, 1.5, 0, 5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }], FACE_COLOUR);
+                var topBackEdge = makeEdge(FACES.TOP_BACK_EDGE, 7, 1.5, -5, 0, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }], FACE_COLOUR);
+                var topLeftEdge = makeEdge(FACES.TOP_LEFT_EDGE, 7, 1.5, 0, -5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }], FACE_COLOUR);
+
+                var bottomFrontEdge = makeEdge(FACES.BOTTOM_FRONT_EDGE, 7, 1.5, 5, 0, -5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var bottomRightEdge = makeEdge(FACES.BOTTOM_RIGHT_EDGE, 7, 1.5, 0, 5, -5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var bottomBackEdge = makeEdge(FACES.BOTTOM_BACK_EDGE, 7, 1.5, -5, 0, -5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+                var bottomLeftEdge = makeEdge(FACES.BOTTOM_LEFT_EDGE, 7, 1.5, 0, -5, -5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }, {axis: Y_AXIS, rad: ROTATE_180}], FACE_COLOUR);
+
+                var frontRightEdge = makeEdge(FACES.FRONT_RIGHT_EDGE, 7, 1.5, 5, 5, 0, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_180
+                }, {axis: Y_AXIS, rad: ROTATE_90}, {axis: Z_AXIS, rad: 0}], FACE_COLOUR);
+                var backRightEdge = makeEdge(FACES.BACK_RIGHT_EDGE, 7, 1.5, -5, 5, 0, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var backLeftEdge = makeEdge(FACES.BACK_LEFT_EDGE, 7, 1.5, -5, -5, 0, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_270}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var frontLeftEdge = makeEdge(FACES.FRONT_LEFT_EDGE, 7, 1.5, 5, -5, 0, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_360}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+
+                // corners
+                var topFrontLeftCorner = makeCorner(FACES.TOP_FRONT_LEFT_CORNER, 1.5, 5, -5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_90
+                }], FACE_COLOUR);
+                var topFrontRightCorner = makeCorner(FACES.TOP_FRONT_RIGHT_CORNER, 1.5, 5, 5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_180
+                }], FACE_COLOUR);
+                var topBackRightCorner = makeCorner(FACES.TOP_BACK_RIGHT_CORNER, 1.5, -5, 5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_270
+                }], FACE_COLOUR);
+                var topBackLeftCorner = makeCorner(FACES.TOP_BACK_LEFT_CORNER, 1.5, -5, -5, 5, [{
+                    axis: Z_AXIS,
+                    rad: ROTATE_360
+                }], FACE_COLOUR);
+
+                var bottomFrontLeftCorner = makeCorner(FACES.BOTTOM_FRONT_LEFT_CORNER, 1.5, 5, -5, -5, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_0
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_0}], FACE_COLOUR);
+                var bottomFrontRightCorner = makeCorner(FACES.BOTTOM_FRONT_RIGHT_CORNER, 1.5, 5, 5, -5, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_0}], FACE_COLOUR);
+                var bottomBackRightCorner = makeCorner(FACES.BOTTOM_BACK_RIGHT_CORNER, 1.5, -5, 5, -5, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_90
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+                var bottomBackLeftCorner = makeCorner(FACES.BOTTOM_BACK_LEFT_CORNER, 1.5, -5, -5, -5, [{
+                    axis: X_AXIS,
+                    rad: ROTATE_0
+                }, {axis: Y_AXIS, rad: ROTATE_180}, {axis: Z_AXIS, rad: ROTATE_90}], FACE_COLOUR);
+
+
+                /*// 合并为cube
+                topFace.setParent=cube;
+                frontFace.setParent=cube;
+                rightFace.setParent=cube;
+                backFace.setParent=cube;
+                leftFace.setParent=cube;
+                bottomFace.setParent=cube;
+
+                //merge edge
+                topFrontEdge.setParent=cube;
+                topRightEdge.setParent=cube;
+                topBackEdge.setParent=cube;
+                topLeftEdge.setParent=cube;
+
+                bottomFrontEdge.setParent=cube;
+                bottomRightEdge.setParent=cube;
+                bottomBackEdge.setParent=cube;
+                bottomLeftEdge.setParent=cube;
+
+                frontRightEdge.setParent=cube;
+                backRightEdge.setParent=cube;
+                backLeftEdge.setParent=cube;
+                frontLeftEdge.setParent=cube;
+
+                // self.cube.add(topFrontLeftCorner);
+                topFrontLeftCorner.setParent=cube;
+                topFrontRightCorner.setParent=cube;
+                topBackRightCorner.setParent=cube;
+                topBackLeftCorner.setParent=cube;
+
+                bottomFrontLeftCorner.setParent=cube;
+                bottomFrontRightCorner.setParent=cube;
+                bottomBackRightCorner.setParent=cube;
+                bottomBackLeftCorner.setParent=cube;*/
+
+                var cube=BABYLON.Mesh.MergeMeshes([topFace,frontFace,rightFace,leftFace,backFace,bottomFace,topFrontEdge,topRightEdge,topBackEdge,topLeftEdge,bottomFrontEdge,bottomRightEdge,bottomBackEdge,bottomLeftEdge,frontRightEdge,backRightEdge,backLeftEdge,frontLeftEdge,topFrontLeftCorner,topFrontRightCorner,topBackRightCorner,topBackLeftCorner,bottomFrontLeftCorner,bottomFrontRightCorner,bottomBackRightCorner,bottomBackLeftCorner],true,true,null,true);
+
+                return cube;
+            }
+
+            setupGeometry();
+
+            return scene;
+        };
+        
+        var engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        var scene = createScene();
+        scene.debugLayer.show();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
